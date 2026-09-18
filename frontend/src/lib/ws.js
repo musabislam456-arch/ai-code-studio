@@ -1,6 +1,16 @@
+import { getAccessToken } from "./api";
+
 export function connectTerminal({ onData, onExit }) {
-  const proto = location.protocol === "https:" ? "wss" : "ws";
-  const socket = new WebSocket(`${proto}://${location.host}/ws/terminal`);
+  const apiUrl = import.meta.env.VITE_API_URL;
+  const token = encodeURIComponent(getAccessToken());
+  let wsUrl;
+  if (apiUrl) {
+    wsUrl = apiUrl.replace(/^http/, "ws") + `/ws/terminal?token=${token}`;
+  } else {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    wsUrl = `${proto}://${location.host}/ws/terminal?token=${token}`;
+  }
+  const socket = new WebSocket(wsUrl);
 
   socket.onmessage = (event) => {
     const msg = JSON.parse(event.data);

@@ -1,11 +1,27 @@
-const BASE = "/api";
+// In local dev, leave VITE_API_URL unset — Vite's proxy forwards /api to
+// the backend. In production (Vercel), set VITE_API_URL to your deployed
+// Railway backend URL, e.g. https://your-app.up.railway.app
+const ROOT = import.meta.env.VITE_API_URL || "";
+const BASE = ROOT + "/api";
+
+export function getAccessToken() {
+  return localStorage.getItem("acs_token") || "";
+}
+export function setAccessToken(token) {
+  localStorage.setItem("acs_token", token);
+}
 
 async function req(method, url, body) {
+  const headers = body ? { "Content-Type": "application/json" } : {};
+  const token = getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const res = await fetch(BASE + url, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined
   });
+  if (res.status === 401) throw new Error("Unauthorized — check your access token.");
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
   return res.json();
 }
@@ -28,5 +44,5 @@ export const api = {
   gitLog: (ws) => req("POST", `/workspace/${ws}/git/log`),
   createGithubRepo: (ws, payload) => req("POST", `/workspace/${ws}/github/create-repo`, payload),
 
-  downloadZipUrl: (ws) => `${BASE}/workspace/${ws}/download-zip`
+  downloadZipUrl: (ws) => `${BASE}/workspace/${ws}/download-zip?token=${encodeURIComponent(getAccessToken())}`
 };
