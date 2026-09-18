@@ -22,6 +22,25 @@ function workspacePath(name) {
   return path.join(WORKSPACES_ROOT, safe);
 }
 
+router.post("/agent-chat", async (req, res) => {
+  const { workspace, modelId, messages, systemInstruction } = req.body || {};
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(400).json({ error: "GEMINI_API_KEY not set on server." });
+  const dir = workspacePath(workspace || "my-project");
+  fs.mkdirSync(dir, { recursive: true });
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+  const send = (event) => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(event)}\\n\\n`); };
+  req.on("close", () => {});
+  try {
+    await runAgent({ apiKey, modelId, workspaceDir: dir, messages: messages || [], systemInstruction, send });
+  } catch (err) { send({ type: "error", error: err.message }); }
+  if (!res.writableEnded) res.end();
+});
+
 router.get("/models", (req, res) => {
   res.json({ models: ALL_MODELS });
 });
