@@ -1,48 +1,5 @@
-// In local dev, leave VITE_API_URL unset — Vite's proxy forwards /api to
-// the backend. In production (Vercel), set VITE_API_URL to your deployed
-// Railway backend URL, e.g. https://your-app.up.railway.app
-const ROOT = import.meta.env.VITE_API_URL || "";
-const BASE = ROOT + "/api";
-
-export function getAccessToken() {
-  return localStorage.getItem("acs_token") || "";
-}
-export function setAccessToken(token) {
-  localStorage.setItem("acs_token", token);
-}
-
-async function req(method, url, body) {
-  const headers = body ? { "Content-Type": "application/json" } : {};
-  const token = getAccessToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const res = await fetch(BASE + url, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined
-  });
-  if (res.status === 401) throw new Error("Unauthorized — check your access token.");
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
-  return res.json();
-}
-
-export const api = {
-  getModels: () => req("GET", "/models"),
-  autoPickModel: (hint) => req("POST", "/models/auto-pick", hint),
-  chat: (payload) => req("POST", "/chat", payload),
-
-  tree: (ws) => req("GET", `/workspace/${ws}/tree`),
-  readFile: (ws, path) => req("GET", `/workspace/${ws}/file?path=${encodeURIComponent(path)}`),
-  writeFile: (ws, path, content) => req("POST", `/workspace/${ws}/file`, { path, content }),
-  deleteFile: (ws, path) => req("DELETE", `/workspace/${ws}/file?path=${encodeURIComponent(path)}`),
-
-  gitInit: (ws) => req("POST", `/workspace/${ws}/git/init`),
-  gitCommit: (ws, message) => req("POST", `/workspace/${ws}/git/commit`, { message }),
-  gitPush: (ws, remote, branch) => req("POST", `/workspace/${ws}/git/push`, { remote, branch }),
-  gitPull: (ws, remote, branch) => req("POST", `/workspace/${ws}/git/pull`, { remote, branch }),
-  gitStatus: (ws) => req("POST", `/workspace/${ws}/git/status`),
-  gitLog: (ws) => req("POST", `/workspace/${ws}/git/log`),
-  createGithubRepo: (ws, payload) => req("POST", `/workspace/${ws}/github/create-repo`, payload),
-
-  downloadZipUrl: (ws) => `${BASE}/workspace/${ws}/download-zip?token=${encodeURIComponent(getAccessToken())}`
-};
+const ROOT=import.meta.env.VITE_API_URL||"",BASE=ROOT+"/api";
+export function getAccessToken(){return localStorage.getItem("acs_token")||""} export function setAccessToken(t){localStorage.setItem("acs_token",t)}
+async function req(method,url,body){const headers=body?{"Content-Type":"application/json"}:{};const token=getAccessToken();if(token)headers.Authorization=`Bearer ${token}`;const res=await fetch(BASE+url,{method,headers,body:body?JSON.stringify(body):undefined});if(res.status===401)throw new Error("Unauthorized — check your access token.");if(!res.ok)throw new Error((await res.json().catch(()=>({}))).error||res.statusText);return res.json()}
+export async function streamSse(url,payload,onEvent){const headers={"Content-Type":"application/json",Accept:"text/event-stream"};const token=getAccessToken();if(token)headers.Authorization=`Bearer ${token}`;const res=await fetch(BASE+url,{method:"POST",headers,body:JSON.stringify(payload)});if(!res.ok)throw new Error((await res.json().catch(()=>({}))).error||res.statusText);const reader=res.body.getReader(),decoder=new TextDecoder();let buffer="";while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const chunks=buffer.split("\n\n");buffer=chunks.pop()||"";for(const chunk of chunks){const line=chunk.split("\n").find(x=>x.startsWith("data: "));if(!line)continue;const e=JSON.parse(line.slice(6));onEvent(e);if(e.type==="error")throw new Error(e.error||"Agent error");}}}
+export const api={getModels:()=>req("GET","/models"),autoPickModel:h=>req("POST","/models/auto-pick",h),chat:p=>req("POST","/chat",p),agentChat:p=>streamSse("/agent-chat",p,p.onEvent),tree:w=>req("GET",`/workspace/${w}/tree`),readFile:(w,p)=>req("GET",`/workspace/${w}/file?path=${encodeURIComponent(p)}`),writeFile:(w,p,c)=>req("POST",`/workspace/${w}/file`,{path:p,content:c}),deleteFile:(w,p)=>req("DELETE",`/workspace/${w}/file?path=${encodeURIComponent(p)}`),gitInit:w=>req("POST",`/workspace/${w}/git/init`),gitCommit:(w,m)=>req("POST",`/workspace/${w}/git/commit`,{message:m}),gitPush:(w,r,b)=>req("POST",`/workspace/${w}/git/push`,{remote:r,branch:b}),gitPull:(w,r,b)=>req("POST",`/workspace/${w}/git/pull`,{remote:r,branch:b}),gitStatus:w=>req("POST",`/workspace/${w}/git/status`),gitLog:w=>req("POST",`/workspace/${w}/git/log`),createGithubRepo:(w,p)=>req("POST",`/workspace/${w}/github/create-repo`,p),downloadZipUrl:w=>`${BASE}/workspace/${w}/download-zip?token=${encodeURIComponent(getAccessToken())}`};
