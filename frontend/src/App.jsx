@@ -1,86 +1,9 @@
-import React, { useEffect, useState } from "react";
-import Sidebar from "./components/Sidebar";
-import CodeEditor from "./components/CodeEditor";
-import TerminalPanel from "./components/Terminal";
-import ChatPanel from "./components/ChatPanel";
-import ModelPicker from "./components/ModelPicker";
-import GitPanel from "./components/GitPanel";
-import { api } from "./lib/api";
-
-const WORKSPACE = "my-project";
-
-export default function App() {
-  const [tree, setTree] = useState([]);
-  const [activePath, setActivePath] = useState(null);
-  const [content, setContent] = useState("");
-  const [modelId, setModelId] = useState("gemini-3.5-flash");
-  const [autoMode, setAutoMode] = useState(true);
-  const [rightTab, setRightTab] = useState("chat");
-
-  const refreshTree = () => api.tree(WORKSPACE).then((r) => setTree(r.tree)).catch(() => {});
-
-  useEffect(() => { refreshTree(); }, []);
-
-  const openFile = async (path) => {
-    setActivePath(path);
-    const r = await api.readFile(WORKSPACE, path);
-    setContent(r.content);
-  };
-
-  const saveFile = async () => {
-    if (!activePath) return;
-    await api.writeFile(WORKSPACE, activePath, content);
-    refreshTree();
-  };
-
-  const uploadZip = async (file) => {
-    const form = new FormData();
-    form.append("file", file);
-    await fetch(`/api/workspace/${WORKSPACE}/upload-zip`, { method: "POST", body: form });
-    refreshTree();
-  };
-
-  return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">🛠️ AI Code Studio</div>
-        <ModelPicker
-          selectedModel={modelId}
-          onChange={setModelId}
-          autoMode={autoMode}
-          onToggleAuto={setAutoMode}
-        />
-        <div className="tabs">
-          <button className={rightTab === "chat" ? "active" : ""} onClick={() => setRightTab("chat")}>Chat</button>
-          <button className={rightTab === "git" ? "active" : ""} onClick={() => setRightTab("git")}>Git</button>
-        </div>
-      </header>
-
-      <div className="main-grid">
-        <Sidebar
-          tree={tree}
-          onOpenFile={openFile}
-          onRefresh={refreshTree}
-          onUploadZip={uploadZip}
-          onDownloadZip={() => window.open(api.downloadZipUrl(WORKSPACE), "_blank")}
-        />
-
-        <div className="center-col">
-          <CodeEditor
-            activePath={activePath}
-            content={content}
-            onChange={setContent}
-            onSave={saveFile}
-          />
-          <TerminalPanel cwd={WORKSPACE} />
-        </div>
-
-        <div className="right-col">
-          {rightTab === "chat"
-            ? <ChatPanel modelId={modelId} autoMode={autoMode} workspace={WORKSPACE} />
-            : <GitPanel workspace={WORKSPACE} />}
-        </div>
-      </div>
-    </div>
-  );
-}
+import React,{useEffect,useState} from "react";
+import Sidebar from "./components/Sidebar";import CodeEditor from "./components/CodeEditor";import TerminalPanel from "./components/Terminal";import ChatPanel from "./components/ChatPanel";import ActivityPanel from "./components/ActivityPanel";import ModelPicker from "./components/ModelPicker";import GitPanel from "./components/GitPanel";import {api} from "./lib/api";
+const WORKSPACE="my-project";
+export default function App(){const [tree,setTree]=useState([]),[activePath,setActivePath]=useState(null),[content,setContent]=useState(""),[modelId,setModelId]=useState("gemini-3.5-flash"),[autoMode,setAutoMode]=useState(true),[rightTab,setRightTab]=useState("chat"),[events,setEvents]=useState([]);
+const refreshTree=()=>api.tree(WORKSPACE).then(r=>setTree(r.tree)).catch(()=>{});useEffect(()=>{refreshTree()},[]);
+const openFile=async p=>{setActivePath(p);setContent((await api.readFile(WORKSPACE,p)).content)};const saveFile=async()=>{if(!activePath)return;await api.writeFile(WORKSPACE,activePath,content);refreshTree()};
+const uploadZip=async f=>{const form=new FormData();form.append("file",f);await fetch(`/api/workspace/${WORKSPACE}/upload-zip`,{method:"POST",body:form});refreshTree()};
+return <div className="app"><header className="topbar"><div className="brand">🛠️ AI Code Studio</div><ModelPicker selectedModel={modelId} onChange={setModelId} autoMode={autoMode} onToggleAuto={setAutoMode}/><div className="tabs"><button className={rightTab==="chat"?"active":""} onClick={()=>setRightTab("chat")}>Chat</button><button className={rightTab==="git"?"active":""} onClick={()=>setRightTab("git")}>Git</button></div></header>
+<div className="main-grid"><Sidebar tree={tree} onOpenFile={openFile} onRefresh={refreshTree} onUploadZip={uploadZip} onDownloadZip={()=>window.open(api.downloadZipUrl(WORKSPACE),"_blank")}/><div className="center-col"><CodeEditor activePath={activePath} content={content} onChange={setContent} onSave={saveFile}/><TerminalPanel cwd={WORKSPACE}/></div><div className={`right-col ${rightTab==="chat"?"right-chat-grid":""}`}>{rightTab==="chat"?<><ChatPanel modelId={modelId} autoMode={autoMode} workspace={WORKSPACE} onEvents={e=>setEvents(x=>[...x,e])} onWorkspaceChange={refreshTree}/><ActivityPanel events={events}/></>:<GitPanel workspace={WORKSPACE}/>}</div></div></div>}
