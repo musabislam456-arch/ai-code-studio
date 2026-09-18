@@ -1,0 +1,32 @@
+const BASE = "/api";
+
+async function req(method, url, body) {
+  const res = await fetch(BASE + url, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res.json();
+}
+
+export const api = {
+  getModels: () => req("GET", "/models"),
+  autoPickModel: (hint) => req("POST", "/models/auto-pick", hint),
+  chat: (payload) => req("POST", "/chat", payload),
+
+  tree: (ws) => req("GET", `/workspace/${ws}/tree`),
+  readFile: (ws, path) => req("GET", `/workspace/${ws}/file?path=${encodeURIComponent(path)}`),
+  writeFile: (ws, path, content) => req("POST", `/workspace/${ws}/file`, { path, content }),
+  deleteFile: (ws, path) => req("DELETE", `/workspace/${ws}/file?path=${encodeURIComponent(path)}`),
+
+  gitInit: (ws) => req("POST", `/workspace/${ws}/git/init`),
+  gitCommit: (ws, message) => req("POST", `/workspace/${ws}/git/commit`, { message }),
+  gitPush: (ws, remote, branch) => req("POST", `/workspace/${ws}/git/push`, { remote, branch }),
+  gitPull: (ws, remote, branch) => req("POST", `/workspace/${ws}/git/pull`, { remote, branch }),
+  gitStatus: (ws) => req("POST", `/workspace/${ws}/git/status`),
+  gitLog: (ws) => req("POST", `/workspace/${ws}/git/log`),
+  createGithubRepo: (ws, payload) => req("POST", `/workspace/${ws}/github/create-repo`, payload),
+
+  downloadZipUrl: (ws) => `${BASE}/workspace/${ws}/download-zip`
+};
