@@ -1,69 +1,12 @@
-import React, { useState } from "react";
-import { api } from "../lib/api";
-
-const SYSTEM_INSTRUCTION = `You are AI Code Studio's assistant, an agentic coding helper.
-You can read/write files, run terminal commands, and manage git/GitHub for the
-user's local workspace. Be concise, write production-quality code, explain
-important decisions briefly, and never invent file contents you have not read.`;
-
-export default function ChatPanel({ modelId, autoMode, workspace }) {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const send = async () => {
-    if (!input.trim()) return;
-    const next = [...messages, { role: "user", content: input }];
-    setMessages(next);
-    setInput("");
-    setLoading(true);
-    try {
-      let useModel = modelId;
-      if (autoMode) {
-        const pick = await api.autoPickModel({
-          needsDeepReasoning: input.length > 400,
-          isQuickEdit: input.length < 80,
-          inputTokensEstimate: input.length / 4
-        });
-        useModel = pick.model;
-      }
-      const res = await api.chat({
-        workspace,
-        modelId: useModel,
-        messages: next,
-        systemInstruction: SYSTEM_INSTRUCTION
-      });
-      const text = res?.data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "(no response)";
-      setMessages((m) => [...m, { role: "assistant", content: `[${res.usedModel}] ${text}` }]);
-    } catch (err) {
-      setMessages((m) => [...m, { role: "assistant", content: `⚠️ Error: ${err.message}` }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="chat-panel">
-      <div className="chat-messages">
-        {messages.map((m, i) => (
-          <div key={i} className={`chat-msg ${m.role}`}>{m.content}</div>
-        ))}
-        {loading && <div className="chat-msg assistant">…soch raha hoon</div>}
-      </div>
-      <div className="chat-input-row">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          placeholder="Task batayein... (Enter = send, Shift+Enter = new line)"
-        />
-        <button onClick={send} disabled={loading}>Send</button>
-      </div>
-    </div>
-  );
+import React,{useState} from "react";
+import {api} from "../lib/api";
+const SYSTEM_INSTRUCTION=`You are AI Code Studio, an autonomous coding assistant. You have real tools to inspect and modify the user's workspace and run commands. Do not merely describe how to do a task: perform it with tools. Never invent file contents. Read files before editing them. Preserve existing architecture and make the smallest necessary changes. For a new project, create required files from scratch. Run appropriate checks. Ask before destructive actions. Respond in the user's language/register.`;
+export default function ChatPanel({modelId,autoMode,workspace,onEvents,onWorkspaceChange}){
+ const [messages,setMessages]=useState([]),[input,setInput]=useState(""),[loading,setLoading]=useState(false);
+ const send=async()=>{if(!input.trim()||loading)return; const task=input.trim(),next=[...messages,{role:"user",content:task}];setMessages(next);setInput("");setLoading(true);
+ try{let useModel=modelId;if(autoMode){const p=await api.autoPickModel({needsDeepReasoning:task.length>400,isQuickEdit:task.length<80,inputTokensEstimate:task.length/4});useModel=p.model}
+ let assistantText="";await api.agentChat({workspace,modelId:useModel,messages:next,systemInstruction:SYSTEM_INSTRUCTION,onEvent:e=>{onEvents?.(e);if(e.type==="assistant_delta")assistantText+=e.text||"";if(["file_change","done"].includes(e.type))onWorkspaceChange?.();}});
+ setMessages(m=>[...m,{role:"assistant",content:assistantText||"(Task completed — live activity mein details dekhein.)"}]);
+ }catch(err){onEvents?.({type:"error",error:err.message});setMessages(m=>[...m,{role:"assistant",content:`⚠️ Error: ${err.message}`}]);}finally{setLoading(false)}};
+ return <div className="chat-panel"><div className="chat-messages">{messages.map((m,i)=><div key={i} className={`chat-msg ${m.role}`}>{m.content}</div>)}{loading&&<div className="chat-msg assistant">Working… live activity mein progress dikh rahi hai.</div>}</div><div className="chat-input-row"><textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}}} placeholder="Task batayein... Enter = send, Shift+Enter = new line"/><button onClick={send} disabled={loading}>{loading?"…":"Send"}</button></div></div>
 }
